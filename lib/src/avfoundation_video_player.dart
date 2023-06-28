@@ -49,6 +49,7 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
         break;
       case DataSourceType.file:
         uri = dataSource.uri;
+        httpHeaders = dataSource.httpHeaders;
         break;
       case DataSourceType.contentUri:
         uri = dataSource.uri;

@@ -234,21 +234,38 @@ NS_INLINE UIViewController *rootViewController(void) {
                 httpHeaders:(nonnull NSDictionary<NSString *, NSString *> *)headers
               playerFactory:(id<FVPPlayerFactory>)playerFactory {
   NSDictionary<NSString *, id> *options = nil;
+  bool isSeamlessLooping = false;
   if ([headers count] != 0) {
-    options = @{@"AVURLAssetHTTPHeaderFieldsKey" : headers};
+    NSMutableDictionary<NSString *, id> *mutableHeaders = [NSMutableDictionary dictionaryWithDictionary:headers];
+    if([mutableHeaders.allKeys containsObject:@"kSeamlessLooping"]) {
+        isSeamlessLooping = true;
+        [mutableHeaders removeObjectForKey:@"kSeamlessLooping"];
+    }
+    options = @{@"AVURLAssetHTTPHeaderFieldsKey" : mutableHeaders};
   }
   AVURLAsset *urlAsset = [AVURLAsset URLAssetWithURL:url options:options];
   AVPlayerItem *item = [AVPlayerItem playerItemWithAsset:urlAsset];
-  return [self initWithPlayerItem:item frameUpdater:frameUpdater playerFactory:playerFactory];
+    return [self initWithPlayerItem:item frameUpdater:frameUpdater playerFactory:playerFactory isSeamlessLooping: isSeamlessLooping];
 }
 
 - (instancetype)initWithPlayerItem:(AVPlayerItem *)item
                       frameUpdater:(FLTFrameUpdater *)frameUpdater
-                     playerFactory:(id<FVPPlayerFactory>)playerFactory {
+                     playerFactory:(id<FVPPlayerFactory>)playerFactory isSeamlessLooping:(bool) isSeamlessLooping {
   self = [super init];
   NSAssert(self, @"super init cannot be nil");
 
   AVAsset *asset = [item asset];
+    
+  if(isSeamlessLooping) {
+    CMTimeRange timeRange = CMTimeRangeMake(CMTimeMake(0, 1), CMTimeMake(asset.duration.value, asset.duration.timescale));
+    AVMutableComposition *mutableComposition = [AVMutableComposition composition];
+    for (int i = 0; i < 200; i++) {
+        [mutableComposition insertTimeRange:timeRange ofAsset:asset atTime:mutableComposition.duration error:nil];
+    }
+    item = [[AVPlayerItem alloc] initWithAsset:mutableComposition];
+    asset = [item asset];
+  }
+  
   void (^assetCompletionHandler)(void) = ^{
     if ([asset statusOfValueForKey:@"tracks" error:nil] == AVKeyValueStatusLoaded) {
       NSArray *tracks = [asset tracksWithMediaType:AVMediaTypeVideo];
